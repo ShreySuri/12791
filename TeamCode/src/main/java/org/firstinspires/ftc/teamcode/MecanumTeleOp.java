@@ -29,6 +29,8 @@ public class MecanumTeleOp extends LinearOpMode {
     Servo wristServo;
     Servo pixelLockServo;
 
+    DcMotor lift;
+
     double power;
     double slowMode;
 
@@ -45,9 +47,6 @@ public class MecanumTeleOp extends LinearOpMode {
     double pPos2 = .5;
 
 
-    WebcamName camera = hardwareMap.get(WebcamName.class, "Webcam 1");
-
-    TfodProcessor processor = TfodProcessor.easyCreateWithDefaults();
     //VisionPortal vp = VisionPortal.easyCreateWithDefaults(camera, visionProcessors);
 // to be implemented
 
@@ -85,7 +84,9 @@ public class MecanumTeleOp extends LinearOpMode {
 
         intakeMotor.setTargetPosition(0);
 
-        power = .4;
+        lift = hardwareMap.dcMotor.get("climb");
+
+        power = .6;
         slowMode = 0.3;
 
 
@@ -93,6 +94,11 @@ public class MecanumTeleOp extends LinearOpMode {
         armMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         armMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         armMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        lift.resetDeviceConfigurationForOpMode();
+        lift.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        lift.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         int incrementArm = armMotor.getCurrentPosition();
 
@@ -107,13 +113,19 @@ public class MecanumTeleOp extends LinearOpMode {
         double wristSpeed = 0.00;
         double dronePower = 1;
         boolean droneLaunched = false;
-
+        boolean slow = false;
+    boolean liftOn = false;
+        boolean ran = false;
+        boolean slowTemp = false;
 
         double x;
         double y;
         double rx;
 
         arm stuff = new arm(armMotor, wristServo, pixelLockServo);
+
+        pixelLockServo.setPosition(pPos1);
+        wristServo.setPosition(0.43);
 
         waitForStart();
 
@@ -122,27 +134,59 @@ public class MecanumTeleOp extends LinearOpMode {
         while (opModeIsActive()) {
 
 
+
+
+            if(slow){
+                power = 0.2;
+
+            }
+            else {
+                power = .6;
+            }
             x = gamepad1.left_stick_x;
             y = gamepad1.left_stick_y ;
             rx = gamepad1.right_stick_x  ;
             updateTrajectory(x, y, rx);
-
             if(gamepad1.a)
             {
-                incrementArm+=5;
+                if(incrementArm < 200 ) {
+                    incrementArm += 5;
+                    if (incrementArm < 20) {
+                        wristServo.setPosition(0.42);
+                        pixelLockServo.setPosition(pPos2);
+                    } else if (incrementArm > 20 && incrementArm < 40) wristServo.setPosition(0.35);
+                    else if (incrementArm > 50 && incrementArm < 150) wristServo.setPosition(0.27);
+                }
+                else {
+                    incrementArm +=4;
+                }
             }
             if(gamepad1.b)
             {
-                incrementArm-=5;
+                if(incrementArm > 300){ incrementArm = 300;}
+                else if (incrementArm > 13){
+                    incrementArm -= 2;
+                    if (incrementArm < 500) wristServo.setPosition(.25);
+
+                    if (incrementArm > 90 && (incrementArm < 200)) wristServo.setPosition(0.22);
+                    else if (incrementArm < 85 && incrementArm > 40) wristServo.setPosition(0.35);
+                    else if (incrementArm < 40) wristServo.setPosition(0.42);
+                }
+                else {
+
+                }
             }
             if(gamepad1.right_bumper)
             {
-                wristServo.setPosition(wPos2); //down
+                lift.setPower(.8);
+                liftOn=true;
+
             }
             if(gamepad1.right_trigger > .1)
             {
                 pixelLockServo.setPosition(pPos1);
             }
+
 
 
             if(gamepad1.dpad_down){
@@ -155,14 +199,30 @@ public class MecanumTeleOp extends LinearOpMode {
                 intakeMotor.setPower(0);
             }
             if(gamepad1.y){
-                wristServo.setPosition(.25);
+
+                if(!ran) {
+                    lift.setPower(-.2);
+                    ran=true ;
+                }
+                else {
+                    lift.setPower(0);
+                    ran=false;
+                }
+
             }
             if(gamepad1.x) {
-                incrementArm = 620;
+                incrementArm = Constant.armPos1;
             }
             if(gamepad1.left_bumper)
             {
-               wristServo.setPosition(wPos1);
+                if(!slowTemp){
+                    power = 0.1;
+                    slowTemp = true;
+                }
+                else{
+                    power = 0.7;
+                    slowTemp = false;
+                }
             }
             if(gamepad1.left_trigger > .1)
             {
@@ -197,12 +257,16 @@ public class MecanumTeleOp extends LinearOpMode {
                 pPos2 = Constant.pixelPos2;
             }
 
+            if(lift.getCurrentPosition() > 2700) lift.setPower(0);
+
+
 
             if(incrementArm > 570) wristServo.setPosition(servoScorePos(armMotor.getCurrentPosition()));
             //if(incrementArm < 200) wristServo.setPosition(servoExitPos(armMotor.getCurrentPosition()));
 
             armMotor.setPower(PID(lastKp,lastKi,lastKd, incrementArm, armMotor.getCurrentPosition()));
 
+            telemetry.addData("elPos", lift.getCurrentPosition());
             telemetry.addData("armPos", armMotor.getCurrentPosition());
 
             telemetry.update();
