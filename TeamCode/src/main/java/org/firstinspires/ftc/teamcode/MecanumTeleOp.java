@@ -201,7 +201,7 @@ public class MecanumTeleOp extends LinearOpMode {
             if(gamepad1.y){
 
                 if(!ran) {
-                    lift.setPower(-.2);
+                    lift.setPower(-.7);
                     ran=true ;
                 }
                 else {
