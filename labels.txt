@@ -1,0 +1,2 @@
+0 redCone
+1 blueCone
